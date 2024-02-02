@@ -29,6 +29,7 @@ TEXT = {
     'prompt_password': "Please enter your My Plex password (append your 2FA code at the end if 2FA is enabled):",
     'prompt_username': "Please enter your My Plex username:",
     'select_server': "Please select Plex Media Server:",
+    'select_server_media_type': "Please select media type:",
     'select_server_operation': "Please select an operation to perform on this Plex Media Server",
     'title_error': HTML("<ansired>ERROR</ansired>"),
     'title_main': HTML("<ansiblue>%s v%s</ansiblue>" % (TOOL_NAME, VERSION)),
@@ -74,13 +75,26 @@ def select_server(account):
 # select what you want to do with a Plex Media Server
 def select_server_operation(server):
     values = [
-        ('all_media', 'List all media from all library sections'),
+        ('browse', 'Browse all media from all library sections'),
     ]
-    return radiolist_dialog(title="Server: %s" % server.friendlyName, text=TEXT['select_server_operation'], values=values).run()
+    return radiolist_dialog(title=server.friendlyName, text=TEXT['select_server_operation'], values=values).run()
 
-# list all media in this server
-def server_operation_list_all(server):
-    print(server.library.all()) # TODO MAKE NICER
+# browse all media in this server
+def server_operation_browse(server):
+    print("Loading all items from server (%s). This might take a while..." % server.friendlyName, end='\r')
+    all_media = server.library.all()
+    media_by_type = dict()
+    for item in all_media:
+        if item.type not in media_by_type:
+            media_by_type[item.type] = list()
+        media_by_type[item.type].append(item)
+    while True:
+        values = [(t, ("%s (%d items)" % (t.capitalize(), len(l)))) for t, l in media_by_type.items()]
+        values.sort(key=lambda x: x[0])
+        media_type = radiolist_dialog(title=server.friendlyName, text=TEXT['select_server_media_type'], values=values).run()
+        if media_type is None:
+            break
+        print("TODO DISPLAY!!!"); exit(1) # TODO
     exit(0) # TODO
 
 # main content
@@ -101,9 +115,9 @@ if __name__ == "__main__":
         if server_operation is None:
             continue
 
-        # list all media
-        elif server_operation == 'all_media':
-            server_operation_list_all(server)
+        # browse all media
+        elif server_operation == 'browse':
+            server_operation_browse(server)
 
         # shouldn't get here
         else:
