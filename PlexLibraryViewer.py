@@ -35,6 +35,7 @@ MEDIA_TEXT = {
 TEXT = {
     'prompt_password': "Please enter your My Plex password (append your 2FA code at the end if 2FA is enabled):",
     'prompt_username': "Please enter your My Plex username:",
+    'select_movie': "Please select movie:",
     'select_server': "Please select Plex Media Server:",
     'select_server_media_type': "Please select media type:",
     'select_server_operation': "Please select an operation to perform on this Plex Media Server",
@@ -62,7 +63,7 @@ def authenticate_myplex():
     username = input_dialog(title=TEXT['title_main'], text=TEXT['prompt_username']).run()
     if username is None:
         exit(1)
-    password = input_dialog(title=TEXT['title_main'], text=TEXT['prompt_password'], password=True).run()
+    password = input_dialog(title=TEXT['title_main'], text=TEXT['prompt_password']).run()
     if password is None:
         exit(1)
     account = MyPlexAccount(username, password)
@@ -75,6 +76,7 @@ def select_server(account):
     for resource in account.resources():
         if 'server' in resource.provides.lower():
             servers.append((resource,resource.name))
+    servers.sort(key=lambda x: x[1])
     selection = radiolist_dialog(title=TEXT['title_main'], text=TEXT['select_server'], values=servers).run()
     if selection is None:
         return None
@@ -83,27 +85,58 @@ def select_server(account):
 # select what you want to do with a Plex Media Server
 def select_server_operation(server):
     values = [
-        ('browse', 'Browse all media from all library sections'),
+        ('browse', HTML('<ansired>Browse</ansired> all media from all library sections')),
     ]
+    values.sort(key=lambda x: x[1])
     return radiolist_dialog(title=server.friendlyName, text=TEXT['select_server_operation'], values=values).run()
 
-# browse all media in this server
-def server_operation_browse(server):
-    print(TEXT['status_loading_all'], end='\r')
+# get all media from a server, and return as media_by_type[media_type] = list of media of that type
+def server_list_all(server, verbose=True):
+    if verbose:
+        print(TEXT['status_loading_all'], end='\r')
     all_media = server.library.all()
     media_by_type = dict()
     for item in all_media:
         if item.type not in media_by_type:
             media_by_type[item.type] = list()
         media_by_type[item.type].append(item)
-    print(' '*len(TEXT['status_loading_all']), end='\r')
+    if verbose:
+        print(' '*len(TEXT['status_loading_all']), end='\r')
+    return media_by_type
+
+# view details about a single movie
+def show_movie(movie):
+    text = '<ansired>- Title:</ansired> %s' % movie.title
+    if movie.originalTitle is not None:
+        text += '\n<ansired>- Original Title:</ansired> %s' % movie.originalTitle
+    if movie.originallyAvailableAt is not None:
+        text += '\n<ansired>- Release Date:</ansired> %s' % movie.originallyAvailableAt.strftime("%Y-%m-%d")
+    message_dialog(title=server.friendlyName, text=HTML(text)).run()
+
+# browse all media in this server
+def server_operation_browse(server):
+    media_by_type = server_list_all(server)
     while True:
+        # pick media type (or exit)
         values = [(t, ("%s (%d items)" % (MEDIA_TEXT[t], len(l)))) for t, l in media_by_type.items()]
         values.sort(key=lambda x: x[1])
         media_type = radiolist_dialog(title=server.friendlyName, text=TEXT['select_server_media_type'], values=values).run()
         if media_type is None:
             break
-        print("TODO DISPLAY!!!"); exit(1) # TODO
+
+        # list all movies: https://python-plexapi.readthedocs.io/en/latest/modules/video.html#plexapi.video.Movie
+        elif media_type == 'movie':
+            movies = [(movie, '%s (%d)' % (movie.title, movie.year)) for movie in media_by_type[media_type]]
+            movies.sort(key=lambda x: x[1])
+            while True:
+                movie = radiolist_dialog(title='Movies (%s)' % server.friendlyName, text=TEXT['select_movie'], values=movies).run()
+                if movie is None:
+                    break
+                show_movie(movie)
+
+        # invalid media type (shouldn't get here)
+        else:
+            raise ValueError("Invalid media type: %s" % media_type)
     exit(0) # TODO
 
 # main content
