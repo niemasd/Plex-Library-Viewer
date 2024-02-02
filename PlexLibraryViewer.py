@@ -24,6 +24,13 @@ VERSION = '0.0.1'
 TOOL_NAME = 'Plex Library Viewer'
 LINE_WIDTH = 120
 
+# mapping from media types to human-readable text
+MEDIA_TEXT = {
+    'artist': 'Music Artist',
+    'movie': 'Movie',
+    'show': 'TV Show',
+}
+
 # text / messages
 TEXT = {
     'prompt_password': "Please enter your My Plex password (append your 2FA code at the end if 2FA is enabled):",
@@ -31,6 +38,7 @@ TEXT = {
     'select_server': "Please select Plex Media Server:",
     'select_server_media_type': "Please select media type:",
     'select_server_operation': "Please select an operation to perform on this Plex Media Server",
+    'status_loading_all': "Loading all items from server (this might take a while)...",
     'title_error': HTML("<ansired>ERROR</ansired>"),
     'title_main': HTML("<ansiblue>%s v%s</ansiblue>" % (TOOL_NAME, VERSION)),
     'welcome': "Welcome to the %s! This simple tool aims to provide a user-friendly command-line interface for exploring Plex libraries using the Plex API.\n\nMade by Niema Moshiri (niemasd), 2024" % TOOL_NAME,
@@ -81,16 +89,17 @@ def select_server_operation(server):
 
 # browse all media in this server
 def server_operation_browse(server):
-    print("Loading all items from server (%s). This might take a while..." % server.friendlyName, end='\r')
+    print(TEXT['status_loading_all'], end='\r')
     all_media = server.library.all()
     media_by_type = dict()
     for item in all_media:
         if item.type not in media_by_type:
             media_by_type[item.type] = list()
         media_by_type[item.type].append(item)
+    print(' '*len(TEXT['status_loading_all']), end='\r')
     while True:
-        values = [(t, ("%s (%d items)" % (t.capitalize(), len(l)))) for t, l in media_by_type.items()]
-        values.sort(key=lambda x: x[0])
+        values = [(t, ("%s (%d items)" % (MEDIA_TEXT[t], len(l)))) for t, l in media_by_type.items()]
+        values.sort(key=lambda x: x[1])
         media_type = radiolist_dialog(title=server.friendlyName, text=TEXT['select_server_media_type'], values=values).run()
         if media_type is None:
             break
