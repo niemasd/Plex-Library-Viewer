@@ -54,6 +54,13 @@ def break_string(s, max_width=LINE_WIDTH):
         text += (word + ' '); col += (len(word) + 1)
     return text
 
+# convert millisecond int to string
+def ms_to_str(d):
+    h = d // 3600000; d %= 3600000 # hours
+    m = d //   60000; d %=   60000 # minutes
+    s = d //    1000; d %=    1000 # seconds
+    return '%s:%s:%s.%s' % (str(h).zfill(2), str(m).zfill(2), str(s).zfill(2), str(d).zfill(3))
+
 # show welcome message
 def show_welcome():
     message_dialog(title=TEXT['title_main'], text=TEXT['welcome']).run()
@@ -104,13 +111,21 @@ def server_list_all(server, verbose=True):
         print(' '*len(TEXT['status_loading_all']), end='\r')
     return media_by_type
 
-# view details about a single movie
+# view details about a single movie: https://python-plexapi.readthedocs.io/en/latest/modules/video.html#plexapi.video.Movie
 def show_movie(movie):
     text = '<ansired>- Title:</ansired> %s' % movie.title
+    if movie.editionTitle is not None:
+        text += ' [%s]' % movie.editionTitle
     if movie.originalTitle is not None:
         text += '\n<ansired>- Original Title:</ansired> %s' % movie.originalTitle
+    if movie.duration is not None:
+        text += '\n<ansired>- Duration:</ansired> %s' % ms_to_str(movie.duration)
     if movie.originallyAvailableAt is not None:
         text += '\n<ansired>- Release Date:</ansired> %s' % movie.originallyAvailableAt.strftime("%Y-%m-%d")
+    if movie.contentRating is not None:
+        text += '\n<ansired>- Content Rating:</ansired> %s' % movie.contentRating
+    if movie.rating is not None:
+        text += '\n<ansired>- Critic Rating:</ansired> %s' % movie.rating
     message_dialog(title=server.friendlyName, text=HTML(text)).run()
 
 # browse all media in this server
@@ -124,7 +139,7 @@ def server_operation_browse(server):
         if media_type is None:
             break
 
-        # list all movies: https://python-plexapi.readthedocs.io/en/latest/modules/video.html#plexapi.video.Movie
+        # list all movies
         elif media_type == 'movie':
             movies = [(movie, '%s (%d)' % (movie.title, movie.year)) for movie in media_by_type[media_type]]
             movies.sort(key=lambda x: x[1])
@@ -137,7 +152,6 @@ def server_operation_browse(server):
         # invalid media type (shouldn't get here)
         else:
             raise ValueError("Invalid media type: %s" % media_type)
-    exit(0) # TODO
 
 # main content
 if __name__ == "__main__":
